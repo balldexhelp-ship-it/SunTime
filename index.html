@@ -6,63 +6,80 @@
 <title>Sun Tracker</title>
 
 <style>
-  body {
-    margin: 0;
-    font-family: Arial, sans-serif;
-    color: white;
-    text-align: center;
-    transition: background 1s ease;
-  }
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
 
-  .container {
-    padding: 40px 20px;
-  }
+body {
+  min-height: 100vh;
+  font-family: Arial, sans-serif;
+  color: white;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  transition: background 1s ease;
+}
 
-  h1 {
-    font-size: 20px;
-    font-weight: normal;
-    opacity: 0.9;
-  }
+/* Container */
+.container {
+  width: 100%;
+  max-width: 400px;
+  padding: 20px;
+}
 
-  .time {
-    font-size: 60px;
-    font-weight: bold;
-    margin: 10px 0 30px;
-  }
+/* Text */
+h1 {
+  font-size: 20px;
+  font-weight: normal;
+  opacity: 0.9;
+}
 
-  hr {
-    border: none;
-    border-top: 1px solid rgba(255,255,255,0.4);
-    margin: 30px 0;
-  }
+.time {
+  font-size: 64px;
+  font-weight: bold;
+  margin: 10px 0 30px;
+}
 
-  .info {
-    font-size: 16px;
-    margin: 8px 0;
-    opacity: 0.9;
-  }
+/* Divider */
+hr {
+  border: none;
+  border-top: 1px solid rgba(255,255,255,0.4);
+  margin: 30px 0;
+}
 
-  .toggle {
-    margin-top: 30px;
-    font-size: 16px;
-  }
+/* Info */
+.info {
+  font-size: 16px;
+  margin: 8px 0;
+  opacity: 0.9;
+}
 
-  /* Gradients */
-  .sunrise {
-    background: linear-gradient(to top, #ff7e5f, #feb47b, #87ceeb);
-  }
+/* Toggle */
+.toggle {
+  margin-top: 30px;
+  font-size: 16px;
+}
 
-  .sunset {
-    background: linear-gradient(to top, #2c3e50, #fd746c, #ff9068);
-  }
+/* Gradients */
+.sunrise {
+  background: linear-gradient(to top, #ff7e5f, #feb47b, #87ceeb);
+}
+
+.sunset {
+  background: linear-gradient(to top, #2c3e50, #fd746c, #ff9068);
+}
 </style>
 </head>
 
 <body class="sunrise">
+
 <div class="container">
 
   <h1 id="title">The sun will rise at</h1>
-  <div class="time" id="mainTime">--:--</div>
+  <div class="time" id="mainTime">Loading...</div>
 
   <hr>
 
@@ -82,11 +99,16 @@
 <script>
 let dataCache = null;
 
+/* Format UTC → local time */
 function formatTime(utcString) {
   const date = new Date(utcString);
-  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return date.toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit'
+  });
 }
 
+/* Update UI */
 function updateUI(isSunset) {
   if (!dataCache) return;
 
@@ -94,6 +116,7 @@ function updateUI(isSunset) {
 
   if (isSunset) {
     document.body.className = "sunset";
+
     document.getElementById("title").textContent = "The sun will set at";
     document.getElementById("mainTime").textContent = formatTime(d.sunset);
 
@@ -108,6 +131,7 @@ function updateUI(isSunset) {
 
   } else {
     document.body.className = "sunrise";
+
     document.getElementById("title").textContent = "The sun will rise at";
     document.getElementById("mainTime").textContent = formatTime(d.sunrise);
 
@@ -122,22 +146,44 @@ function updateUI(isSunset) {
   }
 }
 
+/* Fetch data */
 function fetchSunData(lat, lng) {
   fetch(`https://api.sunrise-sunset.org/json?lat=${lat}&lng=${lng}&formatted=0`)
     .then(res => res.json())
     .then(data => {
+      if (data.status !== "OK") throw new Error("API error");
       dataCache = data.results;
       updateUI(false);
+    })
+    .catch(() => {
+      document.getElementById("mainTime").textContent = "Error loading";
     });
 }
 
-navigator.geolocation.getCurrentPosition(pos => {
-  fetchSunData(pos.coords.latitude, pos.coords.longitude);
-});
+/* Init location */
+function init() {
+  if (!navigator.geolocation) {
+    fetchSunData(47.2529, -122.4443); // fallback (Tacoma)
+    return;
+  }
 
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      fetchSunData(pos.coords.latitude, pos.coords.longitude);
+    },
+    () => {
+      fetchSunData(47.2529, -122.4443); // fallback
+    }
+  );
+}
+
+/* Toggle */
 document.getElementById("toggleSunset").addEventListener("change", function() {
   updateUI(this.checked);
 });
+
+/* Start */
+init();
 </script>
 
 </body>
