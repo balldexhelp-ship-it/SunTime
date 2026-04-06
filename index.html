@@ -10,30 +10,38 @@ html, body {
   margin: 0;
   padding: 0;
   height: 100%;
+  overflow: hidden;
 }
 
 body {
-  min-height: 100vh;
   font-family: Arial, sans-serif;
   color: white;
   display: flex;
   justify-content: center;
   align-items: center;
   text-align: center;
-  transition: background 1s ease;
+  transition: background 2s ease;
 }
 
-/* Container */
+/* SKY GRADIENT */
+.sunrise {
+  background: linear-gradient(to top, #ff7e5f, #feb47b, #87ceeb);
+}
+
+.sunset {
+  background: linear-gradient(to top, #1a1a2e, #16213e, #0f3460);
+}
+
+/* CONTAINER */
 .container {
-  width: 100%;
+  position: relative;
+  z-index: 2;
   max-width: 400px;
-  padding: 20px;
 }
 
-/* Text */
+/* TEXT */
 h1 {
   font-size: 20px;
-  font-weight: normal;
   opacity: 0.9;
 }
 
@@ -43,33 +51,57 @@ h1 {
   margin: 10px 0 30px;
 }
 
-/* Divider */
 hr {
   border: none;
   border-top: 1px solid rgba(255,255,255,0.4);
   margin: 30px 0;
 }
 
-/* Info */
 .info {
-  font-size: 16px;
   margin: 8px 0;
-  opacity: 0.9;
 }
 
-/* Toggle */
+/* HILL */
+.hill {
+  position: absolute;
+  bottom: 0;
+  width: 200%;
+  height: 200px;
+  background: #2e7d32;
+  border-radius: 50%;
+  left: -50%;
+  transition: background 2s ease;
+}
+
+.sunset .hill {
+  background: #0d1b0d;
+}
+
+/* SUN / MOON */
+.celestial {
+  position: absolute;
+  bottom: 120px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  transition: all 2s ease;
+}
+
+.sun {
+  background: radial-gradient(circle, #fff176, #ff9800);
+  box-shadow: 0 0 40px rgba(255,200,0,0.7);
+}
+
+.moon {
+  background: white;
+  box-shadow: 0 0 20px rgba(255,255,255,0.5);
+}
+
+/* TOGGLE */
 .toggle {
   margin-top: 30px;
-  font-size: 16px;
-}
-
-/* Gradients */
-.sunrise {
-  background: linear-gradient(to top, #ff7e5f, #feb47b, #87ceeb);
-}
-
-.sunset {
-  background: linear-gradient(to top, #2c3e50, #fd746c, #ff9068);
 }
 </style>
 </head>
@@ -77,15 +109,14 @@ hr {
 <body class="sunrise">
 
 <div class="container">
-
   <h1 id="title">The sun will rise at</h1>
   <div class="time" id="mainTime">Loading...</div>
 
   <hr>
 
-  <div class="info" id="astro">Astronomical Twilight: --:--</div>
-  <div class="info" id="nautical">Nautical Twilight: --:--</div>
-  <div class="info" id="civil">Civil Twilight: --:--</div>
+  <div class="info" id="astro"></div>
+  <div class="info" id="nautical"></div>
+  <div class="info" id="civil"></div>
 
   <div class="toggle">
     <label>
@@ -93,26 +124,26 @@ hr {
       Show SUNSET
     </label>
   </div>
-
 </div>
+
+<div class="celestial sun" id="celestial"></div>
+<div class="hill"></div>
 
 <script>
 let dataCache = null;
 
-/* Format UTC → local time */
-function formatTime(utcString) {
-  const date = new Date(utcString);
-  return date.toLocaleTimeString([], {
+function formatTime(t) {
+  return new Date(t).toLocaleTimeString([], {
     hour: '2-digit',
     minute: '2-digit'
   });
 }
 
-/* Update UI */
 function updateUI(isSunset) {
   if (!dataCache) return;
 
   const d = dataCache;
+  const celestial = document.getElementById("celestial");
 
   if (isSunset) {
     document.body.className = "sunset";
@@ -122,12 +153,13 @@ function updateUI(isSunset) {
 
     document.getElementById("astro").textContent =
       "Astronomical Twilight: " + formatTime(d.astronomical_twilight_end);
-
     document.getElementById("nautical").textContent =
       "Nautical Twilight: " + formatTime(d.nautical_twilight_end);
-
     document.getElementById("civil").textContent =
       "Civil Twilight: " + formatTime(d.civil_twilight_end);
+
+    celestial.className = "celestial moon";
+    celestial.style.bottom = "180px";
 
   } else {
     document.body.className = "sunrise";
@@ -137,53 +169,32 @@ function updateUI(isSunset) {
 
     document.getElementById("astro").textContent =
       "Astronomical Twilight: " + formatTime(d.astronomical_twilight_begin);
-
     document.getElementById("nautical").textContent =
       "Nautical Twilight: " + formatTime(d.nautical_twilight_begin);
-
     document.getElementById("civil").textContent =
       "Civil Twilight: " + formatTime(d.civil_twilight_begin);
+
+    celestial.className = "celestial sun";
+    celestial.style.bottom = "120px";
   }
 }
 
-/* Fetch data */
-function fetchSunData(lat, lng) {
+function fetchSun(lat, lng) {
   fetch(`https://api.sunrise-sunset.org/json?lat=${lat}&lng=${lng}&formatted=0`)
-    .then(res => res.json())
+    .then(r => r.json())
     .then(data => {
-      if (data.status !== "OK") throw new Error("API error");
       dataCache = data.results;
       updateUI(false);
-    })
-    .catch(() => {
-      document.getElementById("mainTime").textContent = "Error loading";
     });
 }
 
-/* Init location */
-function init() {
-  if (!navigator.geolocation) {
-    fetchSunData(47.2529, -122.4443); // fallback (Tacoma)
-    return;
-  }
+navigator.geolocation.getCurrentPosition(
+  pos => fetchSun(pos.coords.latitude, pos.coords.longitude),
+  () => fetchSun(47.2529, -122.4443)
+);
 
-  navigator.geolocation.getCurrentPosition(
-    pos => {
-      fetchSunData(pos.coords.latitude, pos.coords.longitude);
-    },
-    () => {
-      fetchSunData(47.2529, -122.4443); // fallback
-    }
-  );
-}
-
-/* Toggle */
-document.getElementById("toggleSunset").addEventListener("change", function() {
-  updateUI(this.checked);
-});
-
-/* Start */
-init();
+document.getElementById("toggleSunset")
+  .addEventListener("change", e => updateUI(e.target.checked));
 </script>
 
 </body>
